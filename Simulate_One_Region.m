@@ -1,6 +1,60 @@
+% For one region, run the transmission model (calling LeakyVacc_ODEs.m) & then pass those outputs
+% through the observation model (ODE_to_Observables.m)
+
 function [nDC, nDCH, nDCD, nHospital, inHospital, nICU, inICU, nDeaths, PD_Lockdown, INF, FinalState]=Simulate_One_Region(Region, TAU, ALPHA, INC_P, S_Scale, Factor, h_factor, i_factor, d_factor, h_stretch, i_stretch, Lag, ...
     Start_Date,  WALES_FLAG, ComplianceT, ComplianceO, Run_stop, nV_Beta, nV_Speed, Import_Day, Import_Level, V1, V2, V3, Transmission_Reduction, VEffI, VEffS, VEffH, VEffD, RatioPf, Detection, Susceptibility, ...
     gamma, WaningSpeed, WaningEfficacy, Seasonality, MaxType, FS, W_start)
+
+% Inputs:
+% Region - Region ID
+% TAU - Scaling for asymptomatic transmission (vs symptomatic case)
+% INC_P - 1/latent period (for wildtype variant)
+% S_Scale, Factor - Region specific scaling factors
+% h_factor,i_factor - Modification factors for symptomatic case to hospitalisation/ICU admission probabilities
+% d_factor - Modification factor for hospitalisation to death probabilities
+% h_stretch,i_stretch - Modification factors for hospital & ICU length of stay distributions
+% Lag - Region specific reporting delays 
+% Start_Date - Region specific start time for simulation 
+% WALES_FLAG - If active, runs observation loop with a 14 day cut-off to match data feed
+% nV_Beta, nV_Speed - variant associated variables to modify transmissibility & latent/infectious period duration. 
+% Import_Day, Import_Level - Variant introduction time and amount of seed infections.
+% V1, V2, V3 - Vaccine dose uptake (first, second, booster)
+% ComplianceT - Default precuationary behaviour values (row per time window, column by region) 
+% ComplianceO - Maximum increase to precautionary behaviour (row per time window, column by region), used with an age-dependent scaling factor vector 
+% Run_stop - Times precautionary behaviour adjustments occur
+% Transmission_Reduction, VEffI, VEffS, VEffH, VEffD - Action of vaccine, 
+%    efficacy for transmission blocking, infection blocking, symptomn
+%    blocking, preventing hospitalsation, preventing death.
+%    All 3D arrays, 
+%       - row for vaccine type (row 1: mRNA, row 2: AZ) 
+%       - column for variant, 
+%       - slice for number of doses/natural infection (slice 1: one dose, slice 2: two doses, slice 3: booster dose, slice 4: natural infection) 
+% RatioPf - Proportion of vaccines administered that were mRNA type 
+% Detection - For infected individuals, age-dependent symptomatic probability 
+% Susceptiblity - age-dependent susceptibility
+% gamma - 1/infectious period (for wildtype variant)
+% WaningSpeed - Time horizon over which different immunity groups lose protectionnV1, nV2+wV, nV3, R+wR, waneV, waneR.
+% WaningEfficacy - What efficacy can wane to for different immunity groups
+% Seasonality - Seasonality assocaited parameters. First input for
+% magnitude of seasonality effect. Second input specifies timestep seasonlity meachnism begins (if set to 0, then active throughout entire simulation)
+% MaxType - Total number of variants in the simulation 
+% FS - Final state
+% W_start - Precautionary behaviour windows, specify when these begin
+
+% Outputs: 
+% 2D arrays. Row per timestep, column per age group (with blocks of 21
+% columns for each variant)
+%   nDC - Symptomatic cases
+%   nDCH - Symptomatic cases that can progress to being hospitalised
+%   nDCD - Symptomatic cases that can result in death
+%   nHospital - Hospital admissions
+%   inHospital - Hospital occupancy
+%   nICU - ICU admissions
+%   inICU - ICU occpancy
+%   nDeaths - Deaths
+%   PD_Lockdown
+%   INF - Infections
+%   FinalState - Vector with split of population across the disease states
 
 
 GETTING_OLDER=1;
@@ -373,7 +427,7 @@ nDCH(isnan(nDCH))=0; nDCD(isnan(nDCD))=0;
 
 aa=1:L;
 
-[NDC(:,aa), nHospital, inHospital, nICU, inICU, nDeaths, INF]=ODE_to_Obs(T, nDCH(:,aa), nE(:,aa), Region, h_factor(1),i_factor(1),d_factor(1),h_stretch(1),i_stretch(1),INC_P,...
+[NDC(:,aa), nHospital, inHospital, ~, ~, ~, INF]=ODE_to_Obs(T, nDCH(:,aa), nE(:,aa), Region, h_factor(1),i_factor(1),d_factor(1),h_stretch(1),i_stretch(1),INC_P,...
     Assumed_Delay_Reporting_Deaths, Distribution_Hosp_Time', Distribution_HospICU_Time', Distribution_ICU_Time', Distribution_Symptoms_to_Hospital, Distribution_Symptoms_to_ICU, Distribution_Hopital_to_Death,...
     Hosp_2_Death, Sympt_2_critcal, Sympt_2_hosp,  WALES_FLAG);
 [~, ~, ~, nICU, inICU, nDeaths, ~]=ODE_to_Obs(T, nDCD(:,aa), nE(:,aa), Region, h_factor(1),i_factor(1),d_factor(1),h_stretch(1),i_stretch(1),INC_P,...
@@ -384,7 +438,7 @@ for TYPE=2:MaxType
     LL=(TYPE-1)*L;
     S2H=Sympt_2_hosp;
     if TYPE>=3  S2H=Sympt_2_hosp_Delta; end
-    [~, nHospital(:,aa+LL), inHospital(:,aa+LL), nICU(:,aa+LL), inICU(:,aa+LL), nDeaths(:,aa+LL), INF(:,aa+LL)]=ODE_to_Obs(T, nDCH(:,aa+LL), nE(:,aa+LL), Region, h_factor(TYPE),i_factor(TYPE),d_factor(TYPE),h_stretch(TYPE),i_stretch(TYPE),INC_P*nV_Speed(TYPE-1),...
+    [~, nHospital(:,aa+LL), inHospital(:,aa+LL), ~, ~, ~, INF(:,aa+LL)]=ODE_to_Obs(T, nDCH(:,aa+LL), nE(:,aa+LL), Region, h_factor(TYPE),i_factor(TYPE),d_factor(TYPE),h_stretch(TYPE),i_stretch(TYPE),INC_P*nV_Speed(TYPE-1),...
         Assumed_Delay_Reporting_Deaths, Distribution_Hosp_Time', Distribution_HospICU_Time', Distribution_ICU_Time', Distribution_Symptoms_to_Hospital, Distribution_Symptoms_to_ICU, Distribution_Hopital_to_Death,...
         Hosp_2_Death, Sympt_2_critcal, S2H,  WALES_FLAG);
     [~, ~, ~, nICU(:,aa+LL), inICU(:,aa+LL), nDeaths(:,aa+LL), ~]=ODE_to_Obs(T, nDCD(:,aa+LL), nE(:,aa+LL), Region, h_factor(TYPE),i_factor(TYPE),d_factor(TYPE),h_stretch(TYPE),i_stretch(TYPE),INC_P*nV_Speed(TYPE-1),...

@@ -1,3 +1,5 @@
+% Function that contains the transmission model ODEs
+
 function [T,S,E,D,nD,U,RatioS,Age_structure, FinalState] = LeakyVacc_ODEs(MaxType, M_from_to_H, M_from_to_O, alpha, gamma, sigma, d, tau, nV_Beta, nV_Speed, HHQ, N0, ...
     V1, V2, V3, tmpTransmission_Reduction, tmpVEffI, tmpVEffS, RatioPf, WaningSpeed, WaningEfficacy, MaxTime, InitialState) %#codegen
 
