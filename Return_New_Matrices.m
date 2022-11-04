@@ -1,7 +1,21 @@
+% Function to modify the age-structured contact pattern matrices 
+
 function [new_UK_from_toH, new_UK_from_toW, new_UK_from_toS, new_UK_from_toO] = Return_New_Matrices(SCHOOL_CLOSURES, WORK_CLOSURES, SOCIAL_DISTANCING, Compliance, UK_from_toH, UK_from_toW, UK_from_toS, UK_from_toO)
 
-% order is H, W, S , O
+% Inputs:
+% SCHOOL_CLOSURES - Maximum proportional reduction in school setting contacts
+% WORK_CLOSURES - Maximum proportional reduction in work setting contacts
+% SOCIAL_DISTANCING - Maximum proportional reduction in other setting contacts
+% Compliance - The precautionary behaviour parameter. 
+% UK_from_toH, UK_from_toW, UK_from_toS, UK_from_toO - Initial contact
+% arrays in each of the four settings
+    % order is H (home), W (work), S (school) , O (other)
 
+% Outputs: 
+% new_UK_from_toH, new_UK_from_toW, new_UK_from_toS, new_UK_from_toO - Amended arrays in each of the four settings
+
+
+% Set up compliance/precautionary behaviour based on the input
 if length(Compliance)==1
     Compliance=[1 1 1 1]'*Compliance;
 end
@@ -21,6 +35,7 @@ ReductionAdult=[1.0 1.0 1.0 1.0];   workers_interacting_with_other=0.3;
 ReductionElderly=[1.0 1.0 1.0 1.0];
 hhq=0;
 
+% Compute the maximum reduction per age group and setting
 if Compliance(1)<0.2
     SCHOOL_CLOSURES=1-(Compliance(1)/0.2)*(1-SCHOOL_CLOSURES);
     WORK_CLOSURES=1-(Compliance(1)/0.2)*(1-WORK_CLOSURES);
@@ -43,6 +58,8 @@ if SOCIAL_DISTANCING
 end
 
 
+% Get reduction in contact in each setting, modulated by the level 
+% of precautionary behaviour 
 ReductionPreSchool=ReductionPreSchool'*Compliance(1)' + [1 1 1 1]'*(1-Compliance(1));
 ReductionSchool=ReductionSchool'*Compliance(2:4)' + [1 1 1 1]'*(1-Compliance(2:4)');
 ReductionAdult=ReductionAdult'*Compliance(5:14)' + [1 1 1 1]'*(1-Compliance(5:14)');

@@ -1,5 +1,44 @@
 function [T,S,E,D,nD,U,RatioS,Age_structure, FinalState] = LeakyVacc_ODEs(MaxType, M_from_to_H, M_from_to_O, alpha, gamma, sigma, d, tau, nV_Beta, nV_Speed, HHQ, N0, ...
     V1, V2, V3, tmpTransmission_Reduction, tmpVEffI, tmpVEffS, RatioPf, WaningSpeed, WaningEfficacy, MaxTime, InitialState) %#codegen
+
+% Inputs:
+% MaxType - Total number of variants in the simulation 
+% M_from_to_H - Household setting contact array
+% M_from_to_O - Non-household setting contact array (combining contacts in school, work & other settings)
+% alpha - 1/latent period (for wildtype variant)
+% gamma - 1/infectious period (for wildtype variant)
+% sigma - age-dependent susceptibility
+% d - For infected individuals, age-dependent symptomatic probability 
+% tau - Scaling for asymptomatic transmission (vs symptomatic case)
+% nV_Beta, nV_Speed - variant associated variables to modify transmissibility & latent/infectious period duration. 
+% HHQ - Household quarantine
+% N0 - Population per age group
+% V1, V2, V3 - Vaccine dose uptake (first, second, booster)
+% tmpTransmission_Reduction, tmpVEffI, tmpVEffS - Action of vaccine, 
+%    efficacy for transmission blocking, infection blocking, symptomn
+%    blocking
+%    All 3D arrays, 
+%       - row for vaccine type (row 1: mRNA, row 2: AZ) 
+%       - column for variant, 
+%       - slice for number of doses/natural infection (slice 1: one dose, slice 2: two doses, slice 3: booster dose, slice 4: natural infection) 
+% RatioPf - Proportion of vaccines administered that were mRNA type 
+% WaningSpeed - Time horizon over which different immunity groups lose protectionnV1, nV2+wV, nV3, R+wR, waneV, waneR.
+% WaningEfficacy - What efficacy can wane to for different immunity groups
+% MaxTime - Simulation time horizon
+% InitialState - Initial conditions
+
+% Outputs: 
+% T - Vector of times
+% S - Susceptible states 
+% E - Exposed states
+% D - Symptomatic infectious states
+% nD - Cumulative symptomatic states
+% U - Asymptomatic infectious states 
+% RatioS - those that can potentially be infected
+% Age_structure - Vector defining the split of initial infections across the age groups
+% FinalState - Vector with split of population across the disease states
+
+
 %%
 %
 

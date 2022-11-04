@@ -1,34 +1,44 @@
-function []=Generate_Output(LOOP)
+% Function to run the selected vaccination scenario
 
-%%
+function Generate_Output(LOOP)
 
-Matlab_Save=1;
-
-Rmax=11;
-Rtot=[2:11];
-
-RUN_UNTIL=700;
-
-DATE_STR='02_11_22';
-
-MaxType=5; % maximum number of variants.
-
-
-load(['Data_File_' DATE_STR '.mat']);
-Date=datenum(DATE_STR)+1-datenum(2020,1,1);
-
-load Surrogate_Vaccine_Data.mat
-
-load Regional_PP.mat
-
-% LOOP determines the vaccination strategy
-
+% Input: LOOP determines the vaccination strategy
 
 %LOOP=0 - use the default vaccination.
 %LOOP=1 - same list but at 3 weeks
 %LOOP=2 - same list but at 3 weeks + lower vaccine efficacy
 %LOOP=3 - reversed list at 12 weeks.
 %LOOP=10 - random order of vaccination
+
+% Outputs: None
+
+%%
+
+% Flag variable. If true, outputs saved to MAT file.
+Matlab_Save=1;
+
+
+% Region associated values
+Rmax=11; % Maximum number of regions
+Rtot=[2:11]; %Region ID. 2:8 for the seven NHS regions of England. 9:11 for devolved nations.
+
+% Time horizon (in days)
+RUN_UNTIL=700;
+
+% Maximum number of variants.
+MaxType=5; 
+
+% Load required data files
+DATE_STR='02_11_22';
+load(['Data_File_' DATE_STR '.mat']); % Contains a set of model parameter values.
+Date=datenum(DATE_STR)+1-datenum(2020,1,1);
+
+load Surrogate_Vaccine_Data.mat % Vaccination uptake data
+load Regional_PP.mat % Population data
+
+% Main loop.
+% If not running default vaccination scenario (LOOP = 0), amend vaccination
+% uptake variables.
 if LOOP>0 && LOOP<=3
     VV1=0*V1; VV2=0*V2;
     for R=2:11
@@ -75,6 +85,8 @@ if LOOP==2 % lower the efficacy against alpha and delta.
     VEffS(1,3,1:2)=[55 85]/100; VEffS(2,3,1:2)=[45 49]/100;
 end
 
+
+% Random order of vaccination selected
 if LOOP==10
     AGE_ORDER=[21:-1:4];
     AGE_ORDER=AGE_ORDER(randperm(length(AGE_ORDER)));
