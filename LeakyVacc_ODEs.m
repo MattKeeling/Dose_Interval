@@ -203,7 +203,7 @@ mVEffI=mVEffI/tmp;  mVEffS=mVEffS/tmp; mWaneEff=mWaneEff/tmp; R1=R1/tmp; R2=1-R1
 % A list of all those that can potentially be infected.
 % Slice (3rd dimension) corresponds to: S, nV1, nV2+wV, nV3, R+wR, waneV, waneR.
 for A=1:L
-      Ratios(:,A,1)=pop(:,A);
+    Ratios(:,A,1)=pop(:,A);
     Ratios(:,A,2)=(1-mVEffI(A,1)).*pop(:,SPV+2*L+A);
     Ratios(:,A,3)=(1-mVEffI(A,2)).*pop(:,SPV+3*L+A);
     Ratios(:,A,3)=Ratios(:,A,3) + (1-mVEffI(A,2))+pop(:,SPV+5*L+A);
