@@ -136,26 +136,29 @@ end
 mVEffI=mVEffI/tmp;  mVEffS=mVEffS/tmp; mWaneEff=mWaneEff/tmp; R1=R1/tmp; R2=1-R1;
 
 for A=1:L
-      Ratios(:,A,1)=pop(:,A);
-    Ratios(:,A,2)=(1-mVEffI(A,1)).*pop(:,SPV+2*L+A);
-    Ratios(:,A,3)=(1-mVEffI(A,2)).*pop(:,SPV+3*L+A);
-    Ratios(:,A,3)=Ratios(:,A,3) + (1-mVEffI(A,2))+pop(:,SPV+5*L+A);
-    Ratios(:,A,3)=Ratios(:,A,3) + R1*(1-mVEffI(A,2))+pop(:,SPV+6*L+A) + R2*(1-mVEffI(A,2))+pop(:,SPV+7*L+A);
-    Ratios(:,A,4)=(1-mVEffI(A,3)).*pop(:,SPV+4*L+A);
-    Ratios(:,A,5)=(1-mWaneEff(2))*pop(:,SPV+8*L+A);
-    Ratios(:,A,5)=Ratios(:,A,5) + R2*(1-mVEffI(A,2))+pop(:,SPV+6*L+A) + R1*(1-mVEffI(A,2))+pop(:,SPV+7*L+A);    
-    Ratios(:,A,6)=(1-mWaneEff(1))*pop(:,SPV+8*L+A);
-    Ratios(:,A,7)=(1-mVEffI(A,4))*pop(:,SPV+7*L+A);
-    for Tp=1:MaxType, SP=Tp*(9*L+4*m*L)+L; Ratios(:,A,7)=Ratios(:,A,7)+(1-mVEffI(A,4))*pop(:,SP-L+A);  end %recovereds 
-    
+    % Generate the relative levels of susceptiblity to infection from
+    % different states.
+    Ratios(:,A,1)=pop(:,A);     % Naive susceptibles
+    Ratios(:,A,2)=(1-mVEffI(A,1)).*pop(:,SPV+2*L+A);   % VS1 - vaccinated once
+    Ratios(:,A,3)=(1-mVEffI(A,2)).*pop(:,SPV+3*L+A);   % VS2 - vaccinated twice
+    Ratios(:,A,3)=Ratios(:,A,3) + (1-mVEffI(A,2))+pop(:,SPV+5*L+A);  % add in WS1 - starting to wane
+    Ratios(:,A,3)=Ratios(:,A,3) + R1*(1-mVEffI(A,2))+pop(:,SPV+6*L+A) + R2*(1-mVEffI(A,2))+pop(:,SPV+7*L+A); % add in other WS1 states (multiple to cope with different waning for Omicron)
+    Ratios(:,A,4)=(1-mVEffI(A,3)).*pop(:,SPV+4*L+A);   % Booster vaccinated, not needed in this code
+    Ratios(:,A,5)=(1-mWaneEff(2))*pop(:,SPV+8*L+A);    % Waned WS2
+    Ratios(:,A,5)=Ratios(:,A,5) + R2*(1-mVEffI(A,2))+pop(:,SPV+6*L+A) + R1*(1-mVEffI(A,2))+pop(:,SPV+7*L+A); % add other WS2 states
+    Ratios(:,A,6)=(1-mWaneEff(1))*pop(:,SPV+10*L+A);     % WR2, fully waned from recovered 
+    Ratios(:,A,7)=(1-mVEffI(A,4))*pop(:,SPV+10*L+A)+(1-mVEffI(A,4))*pop(:,SPV+9*L+A);   %  All those that could be infected due to partial cross-immunity
+    for Tp=1:MaxType, SP=Tp*(9*L+4*m*L)+L; Ratios(:,A,7)=Ratios(:,A,7)+(1-mVEffI(A,4))*pop(:,SP-L+A);  end % including those in recovered states
+    % Generate the relative levels of susceptiblity to symptomatic infection from
+    % different states - if that differs.
     RatioS(:,A,1:7)=Ratios(:,A,1:7);
     RatioS(:,A,2)=(1-mVEffS(A,1)).*pop(:,SPV+2*L+A);
-    Ratios(:,A,3)=(1-mVEffS(A,2)).*pop(:,SPV+3*L+A);
-    Ratios(:,A,3)=Ratios(:,A,3) + (1-mVEffS(A,2))+pop(:,SPV+5*L+A);
-    Ratios(:,A,3)=Ratios(:,A,3) + R1*(1-mVEffS(A,2))+pop(:,SPV+6*L+A) + R2*(1-mVEffS(A,2))+pop(:,SPV+7*L+A);
+    RatioS(:,A,3)=(1-mVEffS(A,2)).*pop(:,SPV+3*L+A);
+    RatioS(:,A,3)=RatioS(:,A,3) + (1-mVEffS(A,2))+pop(:,SPV+5*L+A);
+    RatioS(:,A,3)=RatioS(:,A,3) + R1*(1-mVEffS(A,2))+pop(:,SPV+6*L+A) + R2*(1-mVEffS(A,2))+pop(:,SPV+7*L+A);
     RatioS(:,A,4)=(1-mVEffS(A,3)).*pop(:,SPV+4*L+A);
-    RatioS(:,A,7)=(1-mVEffS(A,4))*pop(:,SPV+7*L+A);
-    for Tp=1:MaxType, SP=Tp*(9*L+4*m*L)+L; RatioS(:,A,7)=RatioS(:,A,7)+(1-mVEffS(A,4))*pop(:,SP-L+A);  end %recovereds  
+    RatioS(:,A,7)=(1-mVEffS(A,4))*pop(:,SPV+10*L+A)+(1-mVEffS(A,4))*pop(:,SPV+9*L+A);
+    for Tp=1:MaxType, SP=Tp*(9*L+4*m*L)+L; RatioS(:,A,7)=RatioS(:,A,7)+(1-mVEffS(A,4))*pop(:,SP-L+A);  
 end
 
 % Find all new detectable / symptomatic infections
