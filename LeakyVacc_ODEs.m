@@ -158,7 +158,7 @@ for A=1:L
     RatioS(:,A,3)=RatioS(:,A,3) + R1*(1-mVEffS(A,2))+pop(:,SPV+6*L+A) + R2*(1-mVEffS(A,2))+pop(:,SPV+7*L+A);
     RatioS(:,A,4)=(1-mVEffS(A,3)).*pop(:,SPV+4*L+A);
     RatioS(:,A,7)=(1-mVEffS(A,4))*pop(:,SPV+10*L+A)+(1-mVEffS(A,4))*pop(:,SPV+9*L+A);
-    for Tp=1:MaxType, SP=Tp*(9*L+4*m*L)+L; RatioS(:,A,7)=RatioS(:,A,7)+(1-mVEffS(A,4))*pop(:,SP-L+A);  
+    for Tp=1:MaxType, SP=Tp*(9*L+4*m*L)+L; RatioS(:,A,7)=RatioS(:,A,7)+(1-mVEffS(A,4))*pop(:,SP-L+A); end 
 end
 
 % Find all new detectable / symptomatic infections
