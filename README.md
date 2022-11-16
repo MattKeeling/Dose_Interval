@@ -1,5 +1,7 @@
 # Dose_Interval
  
+Code for the analysis presented in the scientific paper "The Impact of SARS-CoV-2 Vaccine Dose Separation and Dose Targeting on Hospital Admissions and Deaths from COVID-19 in England", currently under review at Nature Communications. An early pre-print is available at: https://doi.org/10.1101/2022.08.22.22278973.
+
 This is a reduced version of the code used to generate the four model outputs (0=default, 1=3-week delay default vaccine efficacy, 2=3-week delay lower vaccine efficacy, 3=youngest first). 
 
 The Matlab file Run_and_Plot.m runs the simulation code and generates graphs of the number of deaths and hospital admissions. For compactness this code only runs a single set of posterior values and for confidentiality reasons uses surrogate vaccination and population size data.
