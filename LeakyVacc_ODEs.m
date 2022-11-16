@@ -1,12 +1,56 @@
+% Function that contains the transmission model ODEs
+
 function [T,S,E,D,nD,U,RatioS,Age_structure, FinalState] = LeakyVacc_ODEs(MaxType, M_from_to_H, M_from_to_O, alpha, gamma, sigma, d, tau, nV_Beta, nV_Speed, HHQ, N0, ...
     V1, V2, V3, tmpTransmission_Reduction, tmpVEffI, tmpVEffS, RatioPf, WaningSpeed, WaningEfficacy, MaxTime, InitialState) %#codegen
-%%
-%
 
+% Inputs:
+% MaxType - Total number of variants in the simulation 
+% M_from_to_H - Household setting contact array
+% M_from_to_O - Non-household setting contact array (combining contacts in school, work & other settings)
+% alpha - 1/latent period (for wildtype variant)
+% gamma - 1/infectious period (for wildtype variant)
+% sigma - age-dependent susceptibility
+% d - For infected individuals, age-dependent symptomatic probability 
+% tau - Scaling for asymptomatic transmission (vs symptomatic case)
+% nV_Beta, nV_Speed - variant associated variables to modify transmissibility & latent/infectious period duration. 
+% HHQ - Household quarantine
+% N0 - Population per age group
+% V1, V2, V3 - Vaccine dose uptake (first, second, booster)
+% tmpTransmission_Reduction, tmpVEffI, tmpVEffS - Action of vaccine, 
+%    efficacy for transmission blocking, infection blocking, symptomn
+%    blocking
+%    All 3D arrays, 
+%       - row for vaccine type (row 1: mRNA, row 2: AZ) 
+%       - column for variant, 
+%       - slice for number of doses/natural infection (slice 1: one dose, slice 2: two doses, slice 3: booster dose, slice 4: natural infection) 
+% RatioPf - Proportion of vaccines administered that were mRNA type 
+% WaningSpeed - Time horizon over which different immunity groups lose protectionnV1, nV2+wV, nV3, R+wR, waneV, waneR.
+% WaningEfficacy - What efficacy can wane to for different immunity groups
+% MaxTime - Simulation time horizon
+% InitialState - Initial conditions
+
+% Outputs: 
+% T - Vector of times
+% S - Susceptible states 
+% E - Exposed states
+% D - Symptomatic infectious states
+% nD - Cumulative symptomatic states
+% U - Asymptomatic infectious states 
+% RatioS - those that can potentially be infected
+% Age_structure - Vector defining the split of initial infections across the age groups
+% FinalState - Vector with split of population across the disease states
+
+
+%%
+
+% Number of stages in latent infected state
 number_E_states=3;
 
+% Number of age groups
 L=length(N0);
 
+% If needed, elongate disease transmission model inputs to match number of
+% % age groups 
 if length(sigma)==1
     sigma=sigma+0*N0;
 else
@@ -28,10 +72,16 @@ if length(HHQ)==1
     hhq=HHQ*ones(size(N0,1),size(N0,2));
 end
 
+% If needed, adjust length of WaningSpeed input 
 if length(WaningSpeed)<5
     WaningSpeed(5)=1/200;
 end
 
+% Intialise and populate vaccine efficacy arrays
+%    All 3D arrays, 
+%       - row for vaccine type (row 1: mRNA, row 2: AZ) 
+%       - column for variant, 
+%       - slice for number of doses/natural infection (slice 1: one dose, slice 2: two doses, slice 3: booster dose, slice 4: natural infection)
 Transmission_Reduction=zeros(21,MaxType,4); VEffI=zeros(21,MaxType,4); VEffS=zeros(21,MaxType,4);
 RatioPf(isnan(RatioPf))=0.5;
 for a=1:21
@@ -40,8 +90,10 @@ for a=1:21
     VEffS(a,:,:)=RatioPf(a)*tmpVEffS(1,:,:)+(1-RatioPf(a))*tmpVEffS(2,:,:);
 end
 
+% All contacts array (sum of household and non-household settings)
 M_from_to=M_from_to_H+M_from_to_O;
 
+% Compute next generation case matrix
 M_from_to_HAT=zeros(L,L);
 for f=1:L
     for t=1:L
@@ -49,7 +101,9 @@ for f=1:L
     end
 end
 
-
+% If required, establish seed infections across age groups
+% If full initial conditions vector is an input, then InitialState is left
+% unmodified
 if length(InitialState)==1 
     [V,D]=eig(M_from_to_HAT);
     [R0, i]=max(abs(diag(D))); R0=R0/gamma;
@@ -74,10 +128,13 @@ else
     Age_structure=0;
 end
 
+% ODE solver options
 options = odeset('RelTol', 1e-8);
 
+% Number of stages in latent infected state
 m=number_E_states;
 
+% Set up vacccination related inputs for evaluating ODEs
 SP=MaxType*(9*L+4*m*L) + L;
 NVacc1=InitialState(SP+[1:L]);
 NVacc2=InitialState(SP+L+[1:L]);
@@ -85,11 +142,14 @@ NVacc0=N0'-NVacc1-NVacc2; NVacc0(NVacc0<0)=0;
 V1(V1>NVacc0)=NVacc0(V1>NVacc0);
 V2(V2>NVacc1)=NVacc1(V2>NVacc1);
 
-
+% Run the model (numerically solve the ODEs)
 [t, pop]=ode45(@Diff_Equations,[0:1:MaxTime],[InitialState],options,[L number_E_states MaxType reshape(M_from_to_H,1,[]) reshape(M_from_to_O,1,[]) ...
     sigma' d' tau' alpha gamma N0' hhq' nV_Beta nV_Speed V1 V2 V3 reshape(Transmission_Reduction,1,[]) ...
     reshape(VEffI,1,[]) reshape(VEffS,1,[]) WaningSpeed reshape(WaningEfficacy,1,[])]);
 
+% Initialise arrays to track counts in each disease state
+% Row by timestep, column for age group + blocked into variants (L columns
+% per variant)
 T=t; 
 S=pop(:,1:L);  
 EF=zeros(size(pop,1),MaxType*L); ES1=EF; ES2=EF; EQ=EF;
@@ -98,8 +158,8 @@ UF=EF; US=EF;
 DQF=EF; DQS=EF; UQ=EF;
 a=[1:L];
 
-
-% DO THE variants in reverse order
+% Assign ODE outcomes for each variant to array 
+% Execcuted in reverse order
 for Vtype=MaxType:-1:1
     SP=(Vtype-1)*(9*L+4*m*L);   % offset for VoC
     LL=(Vtype-1)*L;
@@ -114,7 +174,11 @@ for Vtype=MaxType:-1:1
     DQF(:,a+LL)=pop(:,SP+6*L+a+4*m*L); DQS(:,a+LL)=pop(:,SP+7*L+a+4*m*L); UQ(:,a+L)=pop(:,SP+8*L+a+4*m*L);
 end
 
-E=EF+ES1+ES2+EQ;  D=DF+DS1+DS2+DQF+DQS; U=UF+US+UQ;
+% Get total in each infected state, summing over the different
+% first/seconday/quarantined statuses
+E=EF+ES1+ES2+EQ;  % Latent infected
+D=DF+DS1+DS2+DQF+DQS; % Symptomatic infected
+U=UF+US+UQ; % Asymptomatic infected
 
 %Ratios is a list of all those that can potentially be infected:  S, nV1, nV2+wV, nV3, R+wR, waneV, waneR.
 SPV=MaxType*(9*L+4*m*L)+L;
@@ -135,9 +199,10 @@ for Vtype=2:MaxType
 end
 mVEffI=mVEffI/tmp;  mVEffS=mVEffS/tmp; mWaneEff=mWaneEff/tmp; R1=R1/tmp; R2=1-R1;
 
+% Compute the ratios
+% A list of all those that can potentially be infected.
+% Slice (3rd dimension) corresponds to: S, nV1, nV2+wV, nV3, R+wR, waneV, waneR.
 for A=1:L
-    % Generate the relative levels of susceptiblity to infection from
-    % different states.
     Ratios(:,A,1)=pop(:,A);     % Naive susceptibles
     Ratios(:,A,2)=(1-mVEffI(A,1)).*pop(:,SPV+2*L+A);   % VS1 - vaccinated once
     Ratios(:,A,3)=(1-mVEffI(A,2)).*pop(:,SPV+3*L+A);   % VS2 - vaccinated twice
@@ -177,6 +242,7 @@ end
 % Calculates the differential rates used in the integration.
 function dPop=Diff_Equations(t, pop, parameter)
 
+% Disaggregate parameter input
 L=parameter(1);
 m=parameter(2);
 MaxType=parameter(3);
@@ -222,6 +288,7 @@ for Vtype=1:MaxType
     RRA=RRA+RR(:,Vtype);
 end
 
+% Set up vaccine and waning lookup index
 dPop=zeros(length(pop),1);  
 nVPos1=SPV+2*L;  nVPos2=SPV+3*L;  nVPos3=SPV+4*L;
 WaneVPos11=SPV+5*L; WaneVPos12=SPV+6*L; 
@@ -239,9 +306,10 @@ WEff=[1-VEffI(:,Vtype,2) 1-VEffI(:,Vtype,2) 1-ones(L,1)*WaningEfficacy(Vtype,2) 
 TEff=[Transmission_Reduction(:,Vtype,2).*(1-VEffI(:,Vtype,2)) Transmission_Reduction(:,Vtype,2).*(1-VEffI(:,Vtype,2)) ones(L,1)*(1-WaningEfficacy(Vtype,2))*WaningEfficacy(Vtype,8) ones(L,1)*(1-WaningEfficacy(Vtype,2))*WaningEfficacy(Vtype,8)];
 SEff=[(1-VEffS(:,Vtype,2)) (1-VEffS(:,Vtype,2)) (1-ones(L,1)*WaningEfficacy(Vtype,2)) (1-ones(L,1)*WaningEfficacy(Vtype,2))];
 
-
+% Susceptibles
 SALL=S + (1-VEffI(:,Vtype,1)).*nV1 + (1-VEffI(:,Vtype,2)).*nV2 + (1-VEffI(:,Vtype,3)).*nV3 + (1-VEffI(:,Vtype,4)).*(wR+RRA-RR(:,Vtype)) + WEff(:,1).*WaneV11 + WEff(:,2).*WaneV12 + WEff(:,3).*WaneV21 + WEff(:,4).*WaneV22 + (1-WaningEfficacy(Vtype,1))*WaneR;
 
+% Latent states
 EF=zeros(L,m); ES1=zeros(L,m); ES2=zeros(L,m); EQ=zeros(L,m);
 for i=1:m
     EF(:,i)=pop(SP+L+[1:L]+3*(i-1)*L);  
@@ -249,12 +317,17 @@ for i=1:m
     ES2(:,i)=pop(SP+3*L+[1:L]+3*(i-1)*L);
     EQ(:,i)=pop(SP+6*L+[1:L]+3*m*L+(i-1)*L);
 end
+
+% Infectious states
 DF=pop(SP+1*L+[1:L]+3*m*L); DS1=pop(SP+2*L+[1:L]+3*m*L); DS2=pop(SP+3*L+[1:L]+3*m*L); 
 UF=pop(SP+4*L+[1:L]+3*m*L); US=pop(SP+5*L+[1:L]+3*m*L); 
 DQF=pop(SP+6*L+[1:L]+4*m*L); DQS=pop(SP+7*L+[1:L]+4*m*L); UQ=pop(SP+8*L+[1:L]+4*m*L);
 
+% Total infectious (first infections & secondary infections)
 IF=DF + tau.*UF;   IS=(DS1+DS2) + tau.*US; 
 
+% Actions of vaccination: Scaling to transmission and symptomatic
+% probability
 Trans_Scaling=(1*S + Transmission_Reduction(:,Vtype,1).*(1-VEffI(:,Vtype,1)).*nV1 + ...
     Transmission_Reduction(:,Vtype,2).*(1-VEffI(:,Vtype,2)).*nV2 + Transmission_Reduction(:,Vtype,3).*(1-VEffI(:,Vtype,3)).*nV3 + ...
     Transmission_Reduction(:,Vtype,4).*(1-VEffI(:,Vtype,4)).*(wR+RRA-RR(:,Vtype)) + ...
@@ -263,7 +336,7 @@ Trans_Scaling=(1*S + Transmission_Reduction(:,Vtype,1).*(1-VEffI(:,Vtype,1)).*nV
 Symp_Scaling=(1*S + (1-VEffS(:,Vtype,1)).*nV1 + (1-VEffS(:,Vtype,2)).*(nV2) + (1-VEffS(:,Vtype,3)).*nV3 + (1-VEffS(:,Vtype,4)).*(wR+RRA-RR(:,Vtype)) + ...
     (1-WaningEfficacy(Vtype,1))*WaneR + SEff(:,1).*WaneV11 + SEff(:,2).*WaneV12 + SEff(:,3).*WaneV21 + SEff(:,4).*WaneV22)./SALL;
 
-
+% Force of infection terms
 InfF=Trans_Scaling(a).*(sigma(a).*((IF+ IS)'*M_from_toO(:,a))');
 InfS1=Trans_Scaling(a).*(sigma(a).*((DF)'*M_from_toH(:,a))');
 InfS2=Trans_Scaling(a).*(sigma(a).*((tau.*UF)'*M_from_toH(:,a))');
@@ -346,10 +419,12 @@ SEff=[(1-VEffS(:,Vtype,2)) (1-ones(L,1)*WaningEfficacy(Vtype,2)) (1-VEffS(:,Vtyp
 
 end
 
+% Susceptibles
 SALL=S + (1-VEffI(:,Vtype,1)).*nV1 + (1-VEffI(:,Vtype,2)).*nV2 + (1-VEffI(:,Vtype,3)).*nV3 + (1-VEffI(:,Vtype,4)).*(wR+RRA-RR(:,Vtype)) + WEff(:,1).*WaneV11 + WEff(:,2).*WaneV12 + WEff(:,3).*WaneV21 + WEff(:,4).*WaneV22 + (1-WaningEfficacy(Vtype,1))*WaneR;
 
 SP=(Vtype-1)*(9*L+4*m*L);
 
+% Latent states
 EF=zeros(L,m); ES1=zeros(L,m); ES2=zeros(L,m); EQ=zeros(L,m);
 for i=1:m
     EF(:,i)=pop(SP+L+[1:L]+3*(i-1)*L);  
@@ -357,12 +432,17 @@ for i=1:m
     ES2(:,i)=pop(SP+3*L+[1:L]+3*(i-1)*L);
     EQ(:,i)=pop(SP+6*L+[1:L]+3*m*L+(i-1)*L);
 end
+
+% Infectious states
 DF=pop(SP+1*L+[1:L]+3*m*L); DS1=pop(SP+2*L+[1:L]+3*m*L); DS2=pop(SP+3*L+[1:L]+3*m*L); 
 UF=pop(SP+4*L+[1:L]+3*m*L); US=pop(SP+5*L+[1:L]+3*m*L); 
 DQF=pop(SP+6*L+[1:L]+4*m*L); DQS=pop(SP+7*L+[1:L]+4*m*L); UQ=pop(SP+8*L+[1:L]+4*m*L); 
 
+% Total infectious (by first and secondary types)
 IF=DF + tau.*UF;   IS=(DS1+DS2) + tau.*US;
 
+% Actions of vaccination: Scaling to transmission and symptomatic
+% probability
 a=[1:L]; nBeta=nV_Beta(Vtype-1)*nV_Speed(Vtype-1);
 Trans_Scaling=(1*S + Transmission_Reduction(:,Vtype,1).*(1-VEffI(:,Vtype,1)).*nV1 + ...
     Transmission_Reduction(:,Vtype,2).*(1-VEffI(:,Vtype,2)).*nV2 + Transmission_Reduction(:,Vtype,3).*(1-VEffI(:,Vtype,3)).*nV3 + ...
@@ -372,6 +452,7 @@ Trans_Scaling=(1*S + Transmission_Reduction(:,Vtype,1).*(1-VEffI(:,Vtype,1)).*nV
 Symp_Scaling=(1*S + (1-VEffS(:,Vtype,1)).*nV1 + (1-VEffS(:,Vtype,2)).*(nV2) + (1-VEffS(:,Vtype,3)).*nV3 + (1-VEffS(:,Vtype,4)).*(wR+RRA-RR(:,Vtype)) + ...
      (1-WaningEfficacy(Vtype,1))*WaneR + SEff(:,1).*WaneV11 + SEff(:,2).*WaneV12 + SEff(:,3).*WaneV21 + SEff(:,4).*WaneV22)./SALL;
 
+% Force of infection terms
 InfF=nBeta*Trans_Scaling.*(sigma(a).*((IF+ IS)'*M_from_toO(:,a))');
 InfS1=nBeta*Trans_Scaling.*(sigma(a).*((DF)'*M_from_toH(:,a))');
 InfS2=nBeta*Trans_Scaling.*(sigma(a).*((tau.*UF)'*M_from_toH(:,a))');
