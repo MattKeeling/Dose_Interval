@@ -1,6 +1,6 @@
 # Dose_Interval
  
-Code for the analysis presented in the scientific paper "The Impact of SARS-CoV-2 Vaccine Dose Separation and Dose Targeting on Hospital Admissions and Deaths from COVID-19 in England", currently under review at Nature Communications. An early pre-print is available at: https://doi.org/10.1101/2022.08.22.22278973.
+Code for the analysis presented in the scientific paper "The Impacts of SARS-CoV-2 Vaccine Dose Separation and Targeting on the COVID-19 epidemic in England", currently in press Nature Communications. An early pre-print is available at: https://doi.org/10.1101/2022.08.22.22278973.
 
 This is a reduced version of the code used to generate the four model outputs (0=default, 1=3-week delay default vaccine efficacy, 2=3-week delay lower vaccine efficacy, 3=youngest first). 
 
